@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<!-- CRITICAL FOR MOBILE -->
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>Blackwake: Port Escape</title>
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #0e1621;
+    color: #cfd8dc;
+    font-family: system-ui, sans-serif;
+    text-align: center;
+    overflow: hidden; /* STOP SCROLL */
+    touch-action: manipulation;
+  }
+
+  h2 {
+    font-weight: 300;
+    margin: 8px 0;
+  }
+
+  canvas {
+    display: block;
+    margin: auto;
+    background: linear-gradient(#0e1621, #1c2b3a);
+  }
+
+  .controls {
+    position: fixed;
+    bottom: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    z-index: 10;
+  }
+
+  button {
+    width: 45%;
+    font-size: 20px;
+    padding: 16px 0;
+    background: #1c2b3a;
+    color: #cfd8dc;
+    border: 2px solid #455a64;
+    border-radius: 8px;
+    touch-action: manipulation;
+  }
+
+  .ui {
+    font-size: 14px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>BLACKWAKE: PORT ESCAPE</h2>
+<div class="ui">Jump ⬆ | Slide ⬇ | One mistake ends the run</div>
+
+<canvas id="game"></canvas>
+
+<div class="controls">
+  <button id="jumpBtn">JUMP</button>
+  <button id="slideBtn">SLIDE</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+/* ---------- RESIZE FOR MOBILE ---------- */
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = 300;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+/* ---------- GAME STATE ---------- */
+let gravity = 1.4;
+let speed = 3.2;
+let distance = 0;
+let gameOver = false;
+
+const player = {
+  x: 80,
+  y: 220,
+  w: 26,
+  h: 52,
+  vy: 0,
+  grounded: true,
+  sliding: false,
+  recover: false
+};
+
+const obstacles = [];
+
+/* ---------- INPUT (TOUCH SAFE) ---------- */
+document.getElementById("jumpBtn").addEventListener("touchstart", jump);
+document.getElementById("slideBtn").addEventListener("touchstart", slide);
+document.getElementById("jumpBtn").addEventListener("click", jump);
+document.getElementById("slideBtn").addEventListener("click", slide);
+
+/* ---------- GAME LOGIC ---------- */
+function spawnObstacle() {
+  const type = Math.random() > 0.5 ? "crate" : "beam";
+  obstacles.push({
+    x: canvas.width,
+    type,
+    w: type === "crate" ? 40 : 60,
+    h: type === "crate" ? 45 : 18
+  });
+}
+setInterval(spawnObstacle, 1800);
+
+function jump() {
+  if (player.grounded && !player.recover && !gameOver) {
+    player.vy = -16;
+    player.grounded = false;
+  }
+}
+
+function slide() {
+  if (player.grounded && !player.recover && !gameOver) {
+    player.sliding = true;
+    player.recover = true;
+    player.h = 28;
+    setTimeout(() => {
+      player.h = 52;
+      player.sliding = false;
+      setTimeout(() => player.recover = false, 300);
+    }, 600);
+  }
+}
+
+/* ---------- MAIN LOOP ---------- */
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Ground
+  ctx.fillStyle = "#263238";
+  ctx.fillRect(0, 280, canvas.width, 40);
+
+  // Player physics
+  player.vy += gravity;
+  player.y += player.vy;
+
+  if (player.y + player.h >= 280) {
+    player.y = 280 - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // Player
+  ctx.fillStyle = "#c9a227";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  // Obstacles
+  obstacles.forEach((o, i) => {
+    o.x -= speed;
+
+    if (o.type === "crate") {
+      ctx.fillStyle = "#4e342e";
+      ctx.fillRect(o.x, 235, o.w, o.h);
+    } else {
+      ctx.fillStyle = "#78909c";
+      ctx.fillRect(o.x, 205, o.w, o.h);
+    }
+
+    if (
+      player.x < o.x + o.w &&
+      player.x + player.w > o.x &&
+      player.y < (o.type === "crate" ? 235 + o.h : 205 + o.h) &&
+      player.y + player.h > (o.type === "crate" ? 235 : 205)
+    ) {
+      gameOver = true;
+    }
+
+    if (o.x + o.w < 0) obstacles.splice(i, 1);
+  });
+
+  distance += speed;
+  speed += 0.0005;
+
+  ctx.fillStyle = "#cfd8dc";
+  ctx.fillText("Distance: " + Math.floor(distance), 16, 22);
+
+  if (gameOver) {
+    ctx.fillStyle = "#b71c1c";
+    ctx.font = "22px system-ui";
+    ctx.fillText("CAUGHT", canvas.width / 2 - 40, 150);
+    ctx.font = "14px system-ui";
+    ctx.fillText("Refresh to retry", canvas.width / 2 - 50, 175);
+  }
+
+  if (!gameOver) requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
