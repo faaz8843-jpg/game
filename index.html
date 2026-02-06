@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pirate Riddle Quest</title>
+
+<style>
+body{
+  margin:0;
+  background:#0b1f2a;
+  color:#ffd700;
+  font-family:Trebuchet MS, Arial;
+  text-align:center;
+}
+
+h1{font-size:22px;margin:10px}
+#timer{font-size:18px;color:#00ffcc}
+
+#cards{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+  padding:10px;
+}
+
+@media(min-width:600px){
+  #cards{grid-template-columns:repeat(5,120px);justify-content:center;}
+}
+
+.card{
+  height:130px;
+  position:relative;
+  transform-style:preserve-3d;
+  transition:transform 0.6s;
+  cursor:pointer;
+}
+.card.flip{transform:rotateY(180deg)}
+.card.disabled{pointer-events:none;opacity:0.5}
+
+.face{
+  position:absolute;
+  width:100%;height:100%;
+  backface-visibility:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:28px;
+  border:2px solid gold;
+  border-radius:10px;
+}
+.front{background:#3b1f0f}
+.back{background:#1a0d05;transform:rotateY(180deg)}
+
+#panel{display:none;padding:10px}
+input{
+  padding:12px;
+  width:90%;
+  max-width:320px;
+  font-size:16px;
+}
+button{
+  padding:12px 18px;
+  background:gold;
+  border:none;
+  font-size:16px;
+  margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🏴‍☠️ Pirate Riddle Quest</h1>
+<p>Pick one card • 3 chances • Clues unlock</p>
+<div id="timer">⏱ Time Left: 60s</div>
+
+<div id="cards"></div>
+
+<div id="panel">
+  <h3 id="questionText"></h3>
+  <p id="clueText"></p>
+  <input id="answer" placeholder="Your answer">
+  <br>
+  <button onclick="checkAnswer()">Submit</button>
+  <p id="result"></p>
+</div>
+
+<script>
+/* ================= AUDIO ================= */
+const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+function tone(f,d){
+  const o=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  o.frequency.value=f;o.connect(g);g.connect(audioCtx.destination);
+  g.gain.value=0.3;o.start();
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);
+  o.stop(audioCtx.currentTime+d);
+}
+function win(){tone(700,0.8)}
+function lose(){tone(200,0.8)}
+document.addEventListener("touchstart",()=>audioCtx.resume(),{once:true});
+
+/* ================= QUESTIONS (FROM TXT) ================= */
+const questions = [
+ {q:"What is the role of the protagonist in the pirate crew ?",a:"captain",c1:"Important role",c2:"Leader"},
+ {q:"What is the main tool we used to get the treasure in the game ?",a:"shovel",c1:"First item in game",c2:"Used to dig"},
+ {q:"Where the treasure is located in the island ?",a:"skull",c1:"Type of bone",c2:"Used in pirate flag"},
+ {q:"How many tooth is missing in the skull ?",a:"six",c1:"1 - 8",c2:"Hexagon"},
+ {q:"How many hidden symbol are in the game map ?",a:"three",c1:"Shape based",c2:"1 - 5"},
+ {q:"Name the image used in the image puzzle ?",a:"cat",c1:"Animal",c2:"Rat hunter"},
+ {q:"How many Triangle puzzle piece we have to get ?",a:"five",c1:"1 - 10",c2:"Pentagon"},
+ {q:"Which object will appear after solving image matching puzzle ?",a:"bottle",c1:"Glass",c2:"Stores water"},
+ {q:"How many Spike rocks are there ?",a:"four",c1:"2 - 7",c2:"Square"},
+ {q:"Which object the pirate crew use to spectate the protagonist ?",a:"telescope",c1:"Lens",c2:"____scope"}
+];
+
+/* ================= GAME STATE ================= */
+let current=null;
+let attempts=0;
+let time=60;
+let timer;
+let locked=false;
+
+/* ================= TIMER ================= */
+function startTimer(){
+ clearInterval(timer);
+ time=60;
+ document.getElementById("timer").innerText="⏱ Time Left: 60s";
+ timer=setInterval(()=>{
+  time--;
+  document.getElementById("timer").innerText="⏱ Time Left: "+time+"s";
+  if(time<=0){endRound(false,"Time up! Answer: "+current.a)}
+ },1000);
+}
+
+/* ================= CARDS ================= */
+function createCards(){
+ document.getElementById("panel").style.display="none";
+ document.getElementById("cards").innerHTML="";
+ locked=false;
+ const set=[...questions].sort(()=>Math.random()-0.5).slice(0,10);
+ set.forEach(q=>{
+  const card=document.createElement("div");
+  card.className="card";
+  card.innerHTML=`<div class="face front">❓</div><div class="face back">🗝️</div>`;
+  card.onclick=()=>{
+    if(locked)return;
+    locked=true;
+    document.querySelectorAll(".card").forEach(c=>c.classList.add("disabled"));
+    card.classList.remove("disabled");
+    card.classList.add("flip");
+    startQuestion(q);
+  };
+  document.getElementById("cards").appendChild(card);
+ });
+ startTimer();
+}
+
+/* ================= QUESTION LOGIC ================= */
+function startQuestion(q){
+ current=q;
+ attempts=0;
+ document.getElementById("panel").style.display="block";
+ document.getElementById("questionText").innerText=q.q;
+ document.getElementById("clueText").innerText="";
+ document.getElementById("result").innerText="";
+ document.getElementById("answer").value="";
+}
+
+function checkAnswer(){
+ const ans=document.getElementById("answer").value.toLowerCase().trim();
+ attempts++;
+ if(ans===current.a){
+  endRound(true,"Correct! 🎉");
+ }else if(attempts===1){
+  document.getElementById("clueText").innerText="Clue 1: "+current.c1;
+ }else if(attempts===2){
+  document.getElementById("clueText").innerText="Clue 2: "+current.c2;
+ }else{
+  endRound(false,"Wrong answers given. Correct: "+current.a);
+ }
+}
+
+function endRound(winState,msg){
+ clearInterval(timer);
+ document.getElementById("result").innerText=msg;
+ winState?win():lose();
+ setTimeout(createCards,2000);
+}
+
+/* ================= START ================= */
+createCards();
+</script>
+
+</body>
+</html>
