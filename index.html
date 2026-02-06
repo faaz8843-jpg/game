@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Blackwake: Port Escape</title>
+
+<style>
+  body {
+    margin: 0;
+    background: #0e1621;
+    color: #cfd8dc;
+    font-family: "Segoe UI", sans-serif;
+    text-align: center;
+  }
+
+  h2 {
+    margin: 10px 0;
+    font-weight: 300;
+  }
+
+  canvas {
+    display: block;
+    margin: auto;
+    background: linear-gradient(#0e1621, #1c2b3a);
+    border-top: 2px solid #111;
+  }
+
+  .ui {
+    font-size: 14px;
+    opacity: 0.8;
+    margin-bottom: 5px;
+  }
+
+  button {
+    background: #1c2b3a;
+    color: #cfd8dc;
+    border: 1px solid #455a64;
+    padding: 10px 16px;
+    margin: 5px;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>BLACKWAKE: PORT ESCAPE</h2>
+<div class="ui">Jump ⬆ | Slide ⬇ | One mistake ends the run</div>
+
+<canvas id="game" width="900" height="320"></canvas>
+
+<div>
+  <button onclick="jump()">Jump</button>
+  <button onclick="slide()">Slide</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let gravity = 1.4;
+let speed = 3.2;
+let distance = 0;
+let gameOver = false;
+
+const player = {
+  x: 120,
+  y: 230,
+  w: 28,
+  h: 55,
+  vy: 0,
+  grounded: true,
+  sliding: false,
+  recover: false
+};
+
+const obstacles = [];
+
+function spawnObstacle() {
+  const type = Math.random() > 0.5 ? "crate" : "beam";
+  obstacles.push({
+    x: canvas.width,
+    type,
+    w: type === "crate" ? 40 : 60,
+    h: type === "crate" ? 45 : 18
+  });
+}
+
+setInterval(spawnObstacle, 2000);
+
+function jump() {
+  if (player.grounded && !player.recover && !gameOver) {
+    player.vy = -16;
+    player.grounded = false;
+  }
+}
+
+function slide() {
+  if (player.grounded && !player.recover && !gameOver) {
+    player.sliding = true;
+    player.recover = true;
+    player.h = 28;
+    setTimeout(() => {
+      player.h = 55;
+      player.sliding = false;
+      setTimeout(() => player.recover = false, 300);
+    }, 600);
+  }
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") jump();
+  if (e.key === "ArrowDown") slide();
+});
+
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Ground
+  ctx.fillStyle = "#263238";
+  ctx.fillRect(0, 285, canvas.width, 35);
+
+  // Player physics
+  player.vy += gravity;
+  player.y += player.vy;
+
+  if (player.y + player.h >= 285) {
+    player.y = 285 - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // Player
+  ctx.fillStyle = "#c9a227";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  // Obstacles
+  obstacles.forEach((o, i) => {
+    o.x -= speed;
+
+    if (o.type === "crate") {
+      ctx.fillStyle = "#4e342e";
+      ctx.fillRect(o.x, 240, o.w, o.h);
+    } else {
+      ctx.fillStyle = "#78909c";
+      ctx.fillRect(o.x, 210, o.w, o.h);
+    }
+
+    // Collision
+    if (
+      player.x < o.x + o.w &&
+      player.x + player.w > o.x &&
+      player.y < (o.type === "crate" ? 240 + o.h : 210 + o.h) &&
+      player.y + player.h > (o.type === "crate" ? 240 : 210)
+    ) {
+      gameOver = true;
+    }
+
+    if (o.x + o.w < 0) obstacles.splice(i, 1);
+  });
+
+  distance += speed;
+  speed += 0.0005;
+
+  ctx.fillStyle = "#cfd8dc";
+  ctx.fillText("Distance: " + Math.floor(distance), 20, 25);
+
+  if (gameOver) {
+    ctx.fillStyle = "#b71c1c";
+    ctx.font = "26px Segoe UI";
+    ctx.fillText("CAUGHT BY THE GUARD", 330, 160);
+    ctx.font = "14px Segoe UI";
+    ctx.fillText("Refresh to retry", 400, 185);
+  }
+
+  if (!gameOver) requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
